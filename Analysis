@@ -1,15 +1,30 @@
 Methods
 
-Word embedding was used for every neural network considered. The embedding was trained through the data since there was not an excessive amount of text and it did not add significant computational time. The structures considered were a basic network with only dense layers, convolution networks, and LSTM networks. The maximum number of features considered was 20,000 which should contain all of the important words throughout the dataset since there are only 8529 sentences in the collection. The maximum terms per sentence considered was 50, which should ensure that all words are included since each observation is a single sentence. The data was split into 70% training and 30% validation. Test data was not included to use for the final model because the data set was small, and we wanted to ensure that the maximum observations were used to train the model. The batch size was set to 32 for every model. This batch size was chosen over larger numbers because of the small number of observations used.
+Word embedding was used for every neural network considered. The embedding was trained through the data since there was not an excessive amount of text and it did not 
+add significant computational time. The structures considered were a basic network with only dense layers, convolution networks, and LSTM networks. The maximum number 
+of features considered was 20,000 which should contain all of the important words throughout the dataset since there are only 8529 sentences in the collection. The 
+maximum terms per sentence considered was 50, which should ensure that all words are included since each observation is a single sentence. The data was split into 70% 
+training and 30% validation. Test data was not included to use for the final model because the data set was small, and we wanted to ensure that the maximum observations 
+were used to train the model. The batch size was set to 32 for every model. This batch size was chosen over larger numbers because of the small number of observations 
+used.
 
 Results
 
-In the basic neural network with word embedding, the network that performed the best contained the embedding layer with output dimension 32, a flattening layer, and a dense layer for classification. Additional nodes and layers were considered, but they started overfitting early. Adding dropout reduced the overfitting, but the more complex models still had lower validation accuracy than the simple network with no additional layers.
+In the basic neural network with word embedding, the network that performed the best contained the embedding layer with output dimension 32, a flattening layer, and a 
+dense layer for classification. Additional nodes and layers were considered, but they started overfitting early. Adding dropout reduced the overfitting, but the more 
+complex models still had lower validation accuracy than the simple network with no additional layers.
 
-The convolution network that performed the best included dropout and a hidden layer with 32 nodes. We built on the complexity of a basic convolution network with no additional layers after the convolution and max pooling. When including dropout, the more complex models did not overfit severely and increased validation accuracy.
+The convolution network that performed the best included dropout and a hidden layer with 32 nodes. We built on the complexity of a basic convolution network with no 
+additional layers after the convolution and max pooling. When including dropout, the more complex models did not overfit severely and increased validation accuracy.
 
-The LSTM network that performed the best also had the highest accuracy out of every network tested. The validation accuracy at the 5th epoch was .7626, and the model did not show any severe overfitting. This model contained dropout, the embedding layer with 32 nodes, and a bidirectional LSTM layer with 32 nodes. Making the LSTM layer bidirectional increased accuracy compared to other LSTM models, and the dropout made it so the network did not overfit.
+The LSTM network that performed the best also had the highest accuracy out of every network tested. The validation accuracy at the 5th epoch was .7626, and the model 
+did not show any severe overfitting. This model contained dropout, the embedding layer with 32 nodes, and a bidirectional LSTM layer with 32 nodes. Making the LSTM 
+layer bidirectional increased accuracy compared to other LSTM models, and the dropout made it so the network did not overfit.
 
 Discussion
 
-The LSTM network was determined to be the best network for the data considered. This was to be expected because LSTM networks generally perform well with text data. The convolution network that performed the best had a high accuracy as well. The convolution network would likely be less computationally intensive, so if larger data was used this model could be considered to reduce computation time. A network with a GRU layer was considered as well, but the data set was not large and computation times were not extreme, so LSTM was chosen over GRU. A limitation of this analysis was the sample size of 8529 which could be considered small in context of neural networks.
+The LSTM network was determined to be the best network for the data considered. This was to be expected because LSTM networks generally perform well with text data. 
+The convolution network that performed the best had a high accuracy as well. The convolution network would likely be less computationally intensive, so if larger data
+was used this model could be considered to reduce computation time. A network with a GRU layer was considered as well, but the data set was not large and computation 
+times were not extreme, so LSTM was chosen over GRU. A limitation of this analysis was the sample size of 8529 which could be considered small in context of neural 
+networks.
