@@ -1,0 +1,546 @@
+---
+title: "Deep Learning Project"
+author: "Dustin Bastaich"
+date: "7/5/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The data was downloaded from kaggle from the following link https://www.kaggle.com/c/movie-review-sentiment-analysis-kernels-only/data?select=train.tsv.zip
+The data includes phrases from movie reviews coming from rotten tomatoes.
+
+###### binary or multi class?
+
+
+```{r}
+library(tibble)
+library(readr)
+library(dplyr)
+
+rtomatoe <- read_tsv("D:/Grad/Deep Learning/train.tsv")
+rtomatoetest <- read_tsv("D:/Grad/Deep Learning/test.tsv")
+
+
+```
+
+We want to only use full sentences for the neural network, so the stanford parsing is removed.
+The first for each sentence id is always the full sentence, so the rest from this sentence id are removed.
+```{r}
+firstid <- rtomatoe %>%
+  group_by(SentenceId) %>%
+  arrange(SentenceId) %>%
+  filter(row_number()==1) %>%
+  mutate(BinarySentiment = Sentiment >2)
+
+```
+
+
+
+This code tokenizes the text, so each word throughout the corpus has a corresponding number. This makes the data in the same format as the imdb data used in the class example.
+```{r}
+library(keras)
+
+text <- firstid$Phrase
+
+# Number of words to consider as features
+max_features <- 20000
+tokenizer <- text_tokenizer(num_words = max_features)
+
+tokenizer %>% 
+  fit_text_tokenizer(text)
+
+text_seqs <- texts_to_sequences(tokenizer, text)
+
+
+```
+
+
+This code pads phrases with fewer words than maxlen=50.
+```{r}
+maxlen <- 50               # maximum number of words in a phraseID
+
+x_train <- text_seqs %>%
+  pad_sequences(maxlen = maxlen)
+
+# notice that the outcome is ordinal, coded from 0 to 4
+## 0-negative, 1-somewhat negative, 2-neutral, 3-somewhat positive, 4-possitive
+y_train <- firstid$BinarySentiment
+
+```
+
+
+Basic word embedding NN
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  # We specify the maximum input length to our Embedding layer
+  # so we can later flatten the embedded inputs
+  layer_embedding(input_dim = max_features, output_dim = 8, 
+                  input_length = maxlen) %>% 
+  # We flatten the 3D tensor of embeddings 
+  # into a 2D tensor of shape `(samples, maxlen * 8)`
+  layer_flatten() %>% 
+  # We add the classifier on top
+  layer_dense(units = 1, activation = "sigmoid") 
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+### max val acc roughly .65: epoch 10
+
+```
+
+
+Adding complexity with number of nodes
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  # We specify the maximum input length to our Embedding layer
+  # so we can later flatten the embedded inputs
+  layer_embedding(input_dim = max_features, output_dim = 32, 
+                  input_length = maxlen) %>% 
+  # We flatten the 3D tensor of embeddings 
+  # into a 2D tensor of shape `(samples, maxlen * 8)`
+  layer_flatten() %>% 
+  # We add the classifier on top
+  layer_dense(units = 1, activation = "sigmoid") 
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+### max val acc roughly .7366: epoch 7
+
+```
+
+
+Adding more complexity with number of nodes: not over fitting
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  # We specify the maximum input length to our Embedding layer
+  # so we can later flatten the embedded inputs
+  layer_embedding(input_dim = max_features, output_dim = 50, 
+                  input_length = maxlen) %>% 
+  # We flatten the 3D tensor of embeddings 
+  # into a 2D tensor of shape `(samples, maxlen * 8)`
+  layer_flatten() %>% 
+  # We add the classifier on top
+  layer_dense(units = 1, activation = "sigmoid") 
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+### max val acc roughly .7288: epoch 6
+## accuracy decreased, so going back to 32 nodes for embedding layer
+
+```
+
+
+Adding more complexity with number of layers
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32, 
+                  input_length = maxlen) %>% 
+  layer_flatten() %>% 
+  layer_dense(units = 32, activation = "relu") %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+### max val acc roughly .7097: epoch 4
+## starts overfitting early
+
+```
+
+
+Adding dropout
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32, 
+                  input_length = maxlen) %>% 
+  layer_dropout(0.2) %>%
+  layer_flatten() %>% 
+  layer_dense(units = 32, activation = "relu") %>%
+  layer_dropout(0.2) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+### max val acc roughly .7155: epoch 6
+## not overfitting as early, but still lower accuracy than without additional layer
+
+```
+
+
+lowering nodes in second layer does not help, still lower accuracy than NN without second layer
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32, 
+                  input_length = maxlen) %>% 
+  layer_dropout(0.2) %>%
+  layer_flatten() %>% 
+  layer_dense(units = 8, activation = "relu") %>%
+  layer_dropout(0.2) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+### max val acc roughly .7155: epoch 6
+## not overfitting as early, but still lower accuracy than without additional layer
+
+```
+
+Adding third layer lowers accuracy even more. It appears that simple NN is more effective for the data in this scenario.
+```{r, echo=TRUE, results='hide'}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32, 
+                  input_length = maxlen) %>% 
+  layer_dropout(0.2) %>%
+  layer_flatten() %>% 
+  layer_dense(units = 16, activation = "relu") %>%
+  layer_dropout(0.2) %>%
+  layer_dense(units = 8, activation = "relu") %>%
+  layer_dropout(0.2) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop",
+  loss = "binary_crossentropy",
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train, y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+### max val acc roughly .7155: epoch 6
+## not overfitting as early, but still lower accuracy than without additional layer
+
+```
+
+
+
+#######################################################################################################
+#######################################################################################################
+#######################################################################################################
+
+Basic Conv NN, no drop out, no hidden layer
+```{r}
+# Set parameters:
+embedding_dims <- 32      # nodes from embedding layer
+filters <- 32
+kernel_size <- 3
+
+
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = embedding_dims) %>%
+  layer_conv_1d(
+    filters, kernel_size, 
+    padding = "valid", activation = "relu", strides = 1
+  ) %>%
+  layer_global_max_pooling_1d() %>%
+  layer_dense(1, activation = "sigmoid") %>%
+  compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+hist <- model %>%
+  fit(
+    x_train,
+    y_train,
+  batch_size = 32,
+    epochs = 10,
+    validation_split = 0.3
+  )
+
+
+### max val acc roughly .7425: epoch 8
+
+```
+
+
+
+Here we add a hidden layer to increase complexity in attempt to increase accuracy since the model is not overfitting. Add in dropout as well to make sure that NN does not start overfitting with increased complexity.
+```{r}
+# Set parameters:
+embedding_dims <- 32      # nodes from embedding layer
+filters <- 32
+kernel_size <- 3
+hidden_dims <- 32
+
+
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = embedding_dims) %>%
+  layer_dropout(0.2) %>%
+  layer_conv_1d(
+    filters, kernel_size, 
+    padding = "valid", activation = "relu", strides = 1
+  ) %>%
+  layer_global_max_pooling_1d() %>%
+  layer_dense(hidden_dims, activation = "relu") %>%
+  layer_dropout(0.2) %>%
+  layer_dense(1, activation = "sigmoid") %>%
+  compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+hist <- model %>%
+  fit(
+    x_train,
+    y_train,
+    batch_size = 32,
+    epochs = 10,
+    validation_split = 0.3
+  )
+
+### max val acc roughly .744: epoch 6
+
+```
+
+
+No overfitting in previous NN, so increasing the number of nodes
+```{r}
+# Set parameters:
+embedding_dims <- 64      # nodes from embedding layer
+filters <- 32
+kernel_size <- 3
+hidden_dims <- 32
+
+
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = embedding_dims) %>%
+  layer_dropout(0.2) %>%
+  layer_conv_1d(
+    filters, kernel_size, 
+    padding = "valid", activation = "relu", strides = 1
+  ) %>%
+  layer_global_max_pooling_1d() %>%
+  layer_dense(hidden_dims) %>%
+  layer_dropout(0.2) %>%
+  layer_activation("relu") %>%
+  layer_dense(1) %>%
+  layer_activation("sigmoid") %>%
+  compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+hist <- model %>%
+  fit(
+    x_train,
+    y_train,
+   batch_size = 32,
+    epochs = 10,
+    validation_split = 0.3
+  )
+
+### max val acc roughly .75: epoch 7
+## val accuracy was increased when raising the number of nodes, still no severe overfitting
+
+```
+
+
+
+
+
+
+
+
+
+
+
+NN embedding, lstm
+```{r}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32) %>% 
+  layer_lstm(units = 32) %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+## max val acc roughly .7528: epoch 3
+
+```
+
+NN embedding, lstm 16 nodes from embedding to lstm. 32 nodes began overfitting early.
+```{r}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 16) %>% 
+  layer_lstm(units = 16) %>% 
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 10,
+  batch_size = 128,
+  validation_split = 0.3
+)
+
+
+## max val acc .7522: epoch 7
+# not overfitting early, so overfitting is no longer problem
+
+```
+
+
+Adding dropout instead of reducing nodes
+```{r}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32) %>% 
+  layer_dropout(0.2) %>%
+  layer_lstm(units = 32) %>% 
+  layer_dropout(0.2) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+## max val acc roughly .7608: epoch 5
+## overfitting is not as much of a problem when adding the regularization, and the accuracy reamains ### higher than when decreasing the number of nodes
+
+```
+
+
+
+
+
+making lstm layer bidirectional
+```{r}
+model <- keras_model_sequential() %>% 
+  layer_embedding(input_dim = max_features, output_dim = 32) %>% 
+  layer_dropout(0.2) %>%
+  bidirectional(layer_lstm(units = 32)) %>%
+  layer_dropout(0.2) %>%
+  layer_dense(units = 1, activation = "sigmoid")
+
+model %>% compile(
+  optimizer = "rmsprop", 
+  loss = "binary_crossentropy", 
+  metrics = c("acc")
+)
+
+history <- model %>% fit(
+  x_train,
+  y_train,
+  epochs = 10,
+  batch_size = 32,
+  validation_split = 0.3
+)
+
+
+
+## max val acc .7626: epoch 5/7
+# not overfitting early, maximum validation accuracy from all NNs tested
+  
+
+```
+
+
+
